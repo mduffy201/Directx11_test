@@ -1,14 +1,14 @@
-﻿Build started 14/06/2014 09:45:53.
-     1>Project "C:\Users\Mark\documents\visual studio 2013\Projects\Directx11_test\Renderer\Renderer.vcxproj" on node 2 (Rebuild target(s)).
+﻿Build started 14/06/2014 09:54:05.
+     1>Project "C:\Users\Mark\Documents\GitHub\Directx11_test\Renderer\Renderer.vcxproj" on node 2 (Build target(s)).
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _LIB /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt Renderer.cpp
          Renderer.cpp
-     1>c:\users\mark\documents\visual studio 2013\projects\directx11_test\renderer\renderer.cpp(1): warning C4067: unexpected tokens following preprocessor directive - expected a newline
+     1>c:\users\mark\documents\github\directx11_test\renderer\renderer.cpp(1): warning C4067: unexpected tokens following preprocessor directive - expected a newline
        Lib:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\Lib.exe /OUT:"C:\Users\Mark\documents\visual studio 2013\Projects\Directx11_test\Debug\Renderer.lib" /NOLOGO Debug\Renderer.obj
-         Renderer.vcxproj -> C:\Users\Mark\documents\visual studio 2013\Projects\Directx11_test\Debug\Renderer.lib
-     1>Done Building Project "C:\Users\Mark\documents\visual studio 2013\Projects\Directx11_test\Renderer\Renderer.vcxproj" (Rebuild target(s)).
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\Lib.exe /OUT:"C:\Users\Mark\Documents\GitHub\Directx11_test\Debug\Renderer.lib" /NOLOGO Debug\Renderer.obj
+         Renderer.vcxproj -> C:\Users\Mark\Documents\GitHub\Directx11_test\Debug\Renderer.lib
+     1>Done Building Project "C:\Users\Mark\Documents\GitHub\Directx11_test\Renderer\Renderer.vcxproj" (Build target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:00.25
+Time Elapsed 00:00:00.15
