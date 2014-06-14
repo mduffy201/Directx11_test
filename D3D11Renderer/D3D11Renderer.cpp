@@ -152,6 +152,7 @@ bool D3D11Renderer::createInitialRenderTarget(int windowWidth, int windowHeight)
 	//Bind texture to back buffer
 	//============================
 	ID3D11Texture2D* pBackBuffer = nullptr;
+	HRESULT hr = S_OK;
 
 	m_pSwapChain->GetBuffer(
 		0,									//no of back buffer to get
@@ -162,7 +163,7 @@ bool D3D11Renderer::createInitialRenderTarget(int windowWidth, int windowHeight)
 	//D3D11_TEXTURE2D_DESC descDepth;
 
 	//use back buffer address to create render target
-	HRESULT hr = m_pD3D11Device->CreateRenderTargetView(pBackBuffer, NULL, &m_pBackbuffer);
+	hr = m_pD3D11Device->CreateRenderTargetView(pBackBuffer, NULL, &m_pBackbuffer);
 
 	if (FAILED(hr))
 		return false;
