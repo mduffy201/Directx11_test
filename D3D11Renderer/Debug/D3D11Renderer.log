@@ -1,15 +1,9 @@
-﻿Build started 14/06/2014 17:18:34.
+﻿Build started 14/06/2014 19:21:04.
      1>Project "C:\Users\Mark\Documents\GitHub\Directx11_test\D3D11Renderer\D3D11Renderer.vcxproj" on node 2 (Build target(s)).
-     1>ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /I"C:\Users\Mark\Documents\Visual Studio 2013\Projects\Directx11_test\Effects11" /I"C:\Users\Mark\Documents\Visual Studio 2013\Projects\Directx11_test\Effects11\Binary" /I"C:\Users\Mark\Documents\Visual Studio 2013\Projects\Directx11_test\Effects11\inc" /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _LIB /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt D3D11Renderer.cpp
-         D3D11Renderer.cpp
-     1>c:\users\mark\documents\github\directx11_test\d3d11renderer\d3d11renderer.cpp(187): warning C4244: '=' : conversion from 'int' to 'FLOAT', possible loss of data
-     1>c:\users\mark\documents\github\directx11_test\d3d11renderer\d3d11renderer.cpp(188): warning C4244: '=' : conversion from 'int' to 'FLOAT', possible loss of data
-       Lib:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\Lib.exe /OUT:"C:\Users\Mark\Documents\GitHub\Directx11_test\Debug\D3D11Renderer.lib" /NOLOGO Debug\D3D11Renderer.obj
+     1>Lib:
          D3D11Renderer.vcxproj -> C:\Users\Mark\Documents\GitHub\Directx11_test\Debug\D3D11Renderer.lib
      1>Done Building Project "C:\Users\Mark\Documents\GitHub\Directx11_test\D3D11Renderer\D3D11Renderer.vcxproj" (Build target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:01.56
+Time Elapsed 00:00:00.39
