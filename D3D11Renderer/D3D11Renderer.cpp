@@ -74,10 +74,8 @@ void D3D11Renderer::present()
 	m_pSwapChain->Present(0, 0);
 }
 void D3D11Renderer::render(){
-	//select which vertex buffer to display
-	UINT stride = sizeof(SimpleVertex);
-	UINT offset = 0;
-	m_pD3D11DeviceContext->IASetVertexBuffers(0, 1, &pVBuffer, &stride, &offset);
+	
+	
 
 	//select which primitive type we are using
 	m_pD3D11DeviceContext->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -211,7 +209,7 @@ bool D3D11Renderer::createVertexBuffer()
 	};
 
 
-	//create vertex buffer
+	//create vertex buffer object
 	D3D11_BUFFER_DESC bd;
 	ZeroMemory(&bd, sizeof(bd));
 
@@ -221,13 +219,26 @@ bool D3D11Renderer::createVertexBuffer()
 	bd.CPUAccessFlags = 0;								//allow CPU to write in buffer
 	bd.MiscFlags = 0;
 
+	//Actual data copied to vertex buffer
 	D3D11_SUBRESOURCE_DATA InitData;
+	ZeroMemory(&InitData, sizeof(InitData));
+
 	InitData.pSysMem = vertices;
 
-	if (FAILED(m_pD3D11Device->CreateBuffer(&bd, &InitData, &pVBuffer)))
+	HRESULT hr = m_pD3D11Device->CreateBuffer(&bd, &InitData, &pVBuffer);
+
+	if (FAILED(hr))
 	{
 		OutputDebugString(L"Can't create buffer");
+		return false;
 	}
+
+	//Select which vertex buffer to display
+	UINT stride = sizeof(SimpleVertex);
+	UINT offset = 0;
+
+	//Bind vertex buffer to device
+	m_pD3D11DeviceContext->IASetVertexBuffers(0, 1, &pVBuffer, &stride, &offset);
 
 	return true;
 }
@@ -241,8 +252,9 @@ bool D3D11Renderer::initPipeline(void){
 	//=============================
 	ID3DBlob *pVSBlob = nullptr;			//blob holds compiled shader
 	ID3DBlob *pPSBlob = nullptr;
+	HRESULT hr = S_OK;
 
-	HRESULT hr = CompileShaderFromFile(L"Tutorial02.fx",
+	hr = CompileShaderFromFile(L"Tutorial02.fx",
 		"VS",
 		"vs_4_0",
 		&pVSBlob);
@@ -252,17 +264,42 @@ bool D3D11Renderer::initPipeline(void){
 	{
 		MessageBox(nullptr,
 			L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
-
+	
+		return false;
 	}
-	CompileShaderFromFile(L"Tutorial02.fx",
+
+	hr = CompileShaderFromFile(L"Tutorial02.fx",
 		"PS",
 		"ps_4_0",
 		&pPSBlob);
 
+	if (FAILED(hr))
+	{
+		MessageBox(nullptr,
+			L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
+	
+		return false;
+	}
+
 
 	//encapsulate both shaders into shader objects
-	m_pD3D11Device->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &pVS);
-	m_pD3D11Device->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &pPS);
+	hr = m_pD3D11Device->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &pVS);
+	
+	if (FAILED(hr))
+	{
+		pVSBlob->Release();
+		return false;
+	}
+	
+	hr = m_pD3D11Device->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &pPS);
+	
+	if (FAILED(hr))
+	{
+		pPSBlob->Release();
+		return false;
+	}
+
+	
 
 	//set the shader objects
 	m_pD3D11DeviceContext->VSSetShader(pVS, 0, 0);
@@ -271,17 +308,39 @@ bool D3D11Renderer::initPipeline(void){
 	//===============================
 	//create the input layout object
 	//===============================
-	//define layout structure
+
+	//D3D11_INPUT_ELEMENT_DESC ied = {
+	//SemanticName - Nature of element
+	//SemanticIndex - Used if multiples
+	//Format - data type used for element
+	//InputSlot  - Can pass multiple vertex buffers to GPU at once 0 - 15
+	//AlignedByteOffset - byte offset of element
+	//InputSlotClass - used for instanceing 
+	//InstanceDataStepRate - Used for instancing
+	//}
+
+	//Define layout structure
 	D3D11_INPUT_ELEMENT_DESC ied[] =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
 	};
 
-	//create input layout
-	m_pD3D11Device->CreateInputLayout(ied, 2, pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), &pInputLayout);
-	//set input layout - (Input assembler)
+	UINT numElements = ARRAYSIZE(ied);
+
+	//Create the input layout
+	hr = m_pD3D11Device->CreateInputLayout(ied, numElements, pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), &pInputLayout);
+	
+	pVSBlob->Release();
+	pPSBlob->Release();
+
+	if (FAILED(hr))
+		return false;
+	
+
+	//Bind input layout to Input assembler
 	m_pD3D11DeviceContext->IASetInputLayout(pInputLayout);
+
 
 	return true;
 }

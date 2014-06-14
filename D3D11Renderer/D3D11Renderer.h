@@ -34,9 +34,9 @@ public:
 private:
 	bool createDevice(HWND pWindowHandle, int windowWidth, int windowHeight, bool fullScreen);		//Create back buffer
 	bool createInitialRenderTarget(int windowWidth, int windowHeight);								//Bind texture to backbuffer/initalize viewport
-	bool createVertexBuffer();
-	bool createVertexLayout();
-	bool initPipeline(void);
+	bool createVertexBuffer();																		//Create vertex buffer to hold vertex data
+	//bool createVertexLayout();
+	bool initPipeline(void);																		//Bind vertex buffer and shaders to input assembler
 
 	HRESULT CompileShaderFromFile(WCHAR* szFileName, LPCSTR szEntryPoint, LPCSTR szShaderModel, ID3DBlob** ppBlobOut);
 	//bool loadEffectFromMemory(const char* pMem);
