@@ -152,15 +152,18 @@ bool D3D11Renderer::createInitialRenderTarget(int windowWidth, int windowHeight)
 	//Bind texture to back buffer
 	//============================
 	ID3D11Texture2D* pBackBuffer = nullptr;
+	
 	HRESULT hr = S_OK;
 
-	m_pSwapChain->GetBuffer(
+	hr = m_pSwapChain->GetBuffer(
 		0,									//no of back buffer to get
 		__uuidof(ID3D11Texture2D),			//id no of ID3D11Texture2D
 		(LPVOID*)&pBackBuffer);		//void pointer/texture object
-		//return false;
+		
+	if (FAILED(hr))
+		return false;
 
-	//D3D11_TEXTURE2D_DESC descDepth;
+	
 
 	//use back buffer address to create render target
 	hr = m_pD3D11Device->CreateRenderTargetView(pBackBuffer, NULL, &m_pBackbuffer);
@@ -212,10 +215,10 @@ bool D3D11Renderer::createVertexBuffer()
 	D3D11_BUFFER_DESC bd;
 	ZeroMemory(&bd, sizeof(bd));
 
-	bd.Usage = D3D11_USAGE_DEFAULT;				//write access by CPU and GPU
+	bd.Usage = D3D11_USAGE_DEFAULT;						//write access by CPU and GPU
 	bd.ByteWidth = sizeof(SimpleVertex) * 3;			//size is vertex struct * 3
-	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;	//use as vertex buffer
-	bd.CPUAccessFlags = 0;	//allow CPU to write in buffer
+	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;			//use as vertex buffer
+	bd.CPUAccessFlags = 0;								//allow CPU to write in buffer
 	bd.MiscFlags = 0;
 
 	D3D11_SUBRESOURCE_DATA InitData;
