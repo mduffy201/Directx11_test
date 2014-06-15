@@ -1,17 +1,28 @@
 #include "D3D11Renderer.h"
 
+using namespace DirectX;
+
 struct SimpleVertex
 {
 	DirectX::XMFLOAT3 Pos;
 	DirectX::XMFLOAT4 colour;
 };
-
+struct ConstantBuffer
+{
+	XMMATRIX mWorld;
+	XMMATRIX mView;
+	XMMATRIX mProjection;
+};
 D3D11Renderer::D3D11Renderer(){
 	m_pD3D11Device = NULL;
 	m_pSwapChain = NULL;
 	m_pBackbuffer = NULL;
 	m_pD3D11DeviceContext = NULL;
-
+	pVBuffer = nullptr;										
+	m_pIndexBuffer = nullptr;
+	m_pConstantBuffer = nullptr;
+	m_View = XMMatrixIdentity();
+	m_Projection = XMMatrixIdentity();
 }
 
 D3D11Renderer::~D3D11Renderer()
@@ -52,11 +63,20 @@ bool D3D11Renderer::init(void *pWindowHandle, bool fullscreen){
 	if (!createInitialRenderTarget(width, height))
 		return false;
 
+	if (!initPipeline())
+		return false;
+
 	if (!createVertexBuffer())
 		return false;
 
-	if (!initPipeline())
+	if (!createIndexBuffer())
 		return false;
+
+	if (!createConstantBuffer(width, height))
+		return false;
+
+	//if (!initPipeline())
+		//return false;
 
 
 	return true;
@@ -74,14 +94,43 @@ void D3D11Renderer::present()
 	m_pSwapChain->Present(0, 0);
 }
 void D3D11Renderer::render(){
-	
-	
+	// Update our time
+D3D_DRIVER_TYPE         g_driverType = D3D_DRIVER_TYPE_NULL;
+	static float t = 0.0f;
+	if (g_driverType == D3D_DRIVER_TYPE_REFERENCE)
+	{
+		t += (float)XM_PI * 0.0125f;
+	}
+	else
+	{
+		static ULONGLONG timeStart = 0;
+		ULONGLONG timeCur = GetTickCount64();
+		if (timeStart == 0)
+			timeStart = timeCur;
+		t = (timeCur - timeStart) / 1000.0f;
+	}
+
+	//
+	// Animate the cube
+	//
+	m_World = XMMatrixRotationY(t);
+
+	ConstantBuffer cb;
+	cb.mWorld = XMMatrixTranspose(m_World);
+	cb.mView = XMMatrixTranspose(m_View);
+	cb.mProjection = XMMatrixTranspose(m_Projection);
+	m_pD3D11DeviceContext->UpdateSubresource(m_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+
+	//set the shader objects
+	m_pD3D11DeviceContext->VSSetShader(pVS, nullptr, 0);
+	m_pD3D11DeviceContext->VSSetConstantBuffers(0, 1, &m_pConstantBuffer);
+	m_pD3D11DeviceContext->PSSetShader(pPS, nullptr, 0);
 
 	//select which primitive type we are using
-	m_pD3D11DeviceContext->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	//m_pD3D11DeviceContext->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	// draw vertex buffer to back buffer
-	m_pD3D11DeviceContext->Draw(3, 0);
+	m_pD3D11DeviceContext->DrawIndexed(36, 0, 0);
 
 }
 
@@ -201,12 +250,20 @@ bool D3D11Renderer::createVertexBuffer()
 {
 
 
+	// Create vertex buffer
 	SimpleVertex vertices[] =
 	{
-		{ DirectX::XMFLOAT3(0.0f, 0.5f, 0.5f), DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
-		{ DirectX::XMFLOAT3(0.5f, -0.5f, 0.5f), DirectX::XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
-		{ DirectX::XMFLOAT3(-0.5f, -0.5f, 0.5f), DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) }
+		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
 	};
+
+	UINT numVertices = ARRAYSIZE(vertices);
 
 
 	//create vertex buffer object
@@ -214,7 +271,7 @@ bool D3D11Renderer::createVertexBuffer()
 	ZeroMemory(&bd, sizeof(bd));
 
 	bd.Usage = D3D11_USAGE_DEFAULT;						//write access by CPU and GPU
-	bd.ByteWidth = sizeof(SimpleVertex) * 3;			//size is vertex struct * 3
+	bd.ByteWidth = sizeof(SimpleVertex) * 8;			//size is vertex struct * 3
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;			//use as vertex buffer
 	bd.CPUAccessFlags = 0;								//allow CPU to write in buffer
 	bd.MiscFlags = 0;
@@ -240,9 +297,104 @@ bool D3D11Renderer::createVertexBuffer()
 	//Bind vertex buffer to device
 	m_pD3D11DeviceContext->IASetVertexBuffers(0, 1, &pVBuffer, &stride, &offset);
 
+
+
+
+
+
 	return true;
 }
 
+bool D3D11Renderer::createIndexBuffer()
+{
+	//Create the index buffer
+	WORD indices[] =
+	{
+		3, 1, 0,
+		2, 1, 3,
+
+		0, 5, 4,
+		1, 5, 0,
+
+		3, 4, 7,
+		0, 4, 3,
+
+		1, 6, 5,
+		2, 6, 1,
+
+		2, 7, 6,
+		3, 7, 2,
+
+		6, 4, 5,
+		7, 4, 6,
+	};
+
+	UINT numIndices = ARRAYSIZE(indices);
+
+	//create index buffer object
+	D3D11_BUFFER_DESC bd;
+	ZeroMemory(&bd, sizeof(bd));
+
+	bd.Usage = D3D11_USAGE_DEFAULT;						//write access by CPU and GPU
+	bd.ByteWidth = sizeof(WORD) * 36;			//size is vertex struct * 3
+	bd.BindFlags = D3D11_BIND_INDEX_BUFFER;			//use as vertex buffer
+	bd.CPUAccessFlags = 0;								//allow CPU to write in buffer
+	bd.MiscFlags = 0;
+
+	//Actual data copied to Index buffer
+	D3D11_SUBRESOURCE_DATA InitData;
+	ZeroMemory(&InitData, sizeof(InitData));
+
+	InitData.pSysMem = indices;
+
+	HRESULT hr = m_pD3D11Device->CreateBuffer(&bd, &InitData, &m_pIndexBuffer);
+
+	if (FAILED(hr))
+	{
+		OutputDebugString(L"Can't create index buffer");
+		return false;
+	}
+
+	m_pD3D11DeviceContext->IASetIndexBuffer(m_pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+	// Set primitive topology
+	m_pD3D11DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	
+	return true;
+
+}
+bool D3D11Renderer::createConstantBuffer(int windowWidth, int windowHeight)
+{
+	D3D11_BUFFER_DESC bd;
+	ZeroMemory(&bd, sizeof(bd));
+
+	bd.Usage = D3D11_USAGE_DEFAULT;						//write access by CPU and GPU
+	bd.ByteWidth = sizeof(ConstantBuffer);			//size is vertex struct * 3
+	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;			//use as vertex buffer
+	bd.CPUAccessFlags = 0;								//allow CPU to write in buffer
+	bd.MiscFlags = 0;
+
+	HRESULT hr = m_pD3D11Device->CreateBuffer(&bd, NULL, &m_pConstantBuffer);
+
+	if (FAILED(hr))
+	{
+		OutputDebugString(L"Can't create constant buffer");
+		return false;
+	}
+
+	//Initalise the world matrix
+	m_World = XMMatrixIdentity();
+
+	//Initalise the view matrix
+	XMVECTOR Eye = XMVectorSet(0.0f, 1.0f, -5.0f, 0.0f);
+	XMVECTOR At = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	XMVECTOR Up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	m_View = XMMatrixLookAtLH(Eye, At, Up);
+
+	//Initalise the Projection matrix
+	m_Projection = XMMatrixPerspectiveFovLH(XM_PIDIV2, windowWidth / (FLOAT)windowHeight, 0.01f, 100.0f);
+
+	return true;
+}
 ////Function to load shaders and apply to pipeline
 bool D3D11Renderer::initPipeline(void){
 	//Prepares GPU for rendering
@@ -254,7 +406,7 @@ bool D3D11Renderer::initPipeline(void){
 	ID3DBlob *pPSBlob = nullptr;
 	HRESULT hr = S_OK;
 
-	hr = CompileShaderFromFile(L"Tutorial02.fx",
+	hr = CompileShaderFromFile(L"Tutorial04.fx",
 		"VS",
 		"vs_4_0",
 		&pVSBlob);
@@ -268,7 +420,7 @@ bool D3D11Renderer::initPipeline(void){
 		return false;
 	}
 
-	hr = CompileShaderFromFile(L"Tutorial02.fx",
+	hr = CompileShaderFromFile(L"Tutorial04.fx",
 		"PS",
 		"ps_4_0",
 		&pPSBlob);
@@ -302,8 +454,8 @@ bool D3D11Renderer::initPipeline(void){
 	
 
 	//set the shader objects
-	m_pD3D11DeviceContext->VSSetShader(pVS, 0, 0);
-	m_pD3D11DeviceContext->PSSetShader(pPS, 0, 0);
+	//m_pD3D11DeviceContext->VSSetShader(pVS, 0, 0);
+	//m_pD3D11DeviceContext->PSSetShader(pPS, 0, 0);
 
 	//===============================
 	//create the input layout object
@@ -375,3 +527,4 @@ HRESULT D3D11Renderer::CompileShaderFromFile(WCHAR* szFileName, LPCSTR szEntryPo
 
 	return S_OK;
 }
+

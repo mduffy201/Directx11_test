@@ -35,9 +35,11 @@ private:
 	bool createDevice(HWND pWindowHandle, int windowWidth, int windowHeight, bool fullScreen);		//Create back buffer
 	bool createInitialRenderTarget(int windowWidth, int windowHeight);								//Bind texture to backbuffer/initalize viewport
 	bool createVertexBuffer();																		//Create vertex buffer to hold vertex data
-	//bool createVertexLayout();
+	bool createIndexBuffer();
+	bool createConstantBuffer(int windowWidth, int windowHeight);
 	bool initPipeline(void);																		//Bind vertex buffer and shaders to input assembler
 
+	
 	HRESULT CompileShaderFromFile(WCHAR* szFileName, LPCSTR szEntryPoint, LPCSTR szShaderModel, ID3DBlob** ppBlobOut);
 	//bool loadEffectFromMemory(const char* pMem);
 	//bool loadEffectFromFile(char* pFilename);
@@ -52,8 +54,16 @@ private:
 
 	ID3D11RenderTargetView  *m_pBackbuffer;						//pointer to object that holds info about render target
 	ID3D11Buffer *pVBuffer;										//the vertex buffer
+	ID3D11Buffer * m_pIndexBuffer;
+	ID3D11Buffer *m_pConstantBuffer;
+
 	ID3D11InputLayout *pInputLayout;							//the input layout
 	
 	ID3D11VertexShader *pVS;									//the vertex shader
 	ID3D11PixelShader *pPS;										//the pixel shader
+
+	DirectX::XMMATRIX m_World;
+	DirectX::XMMATRIX m_View;
+	DirectX::XMMATRIX m_Projection;
+
 };

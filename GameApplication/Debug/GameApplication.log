@@ -1,13 +1,14 @@
-﻿Build started 14/06/2014 19:21:05.
-     1>Project "C:\Users\Mark\Documents\GitHub\Directx11_test\GameApplication\GameApplication.vcxproj" on node 2 (Build target(s)).
+﻿Build started 14/06/2014 21:40:57.
+     1>Project "C:\Users\Mark\Documents\GitHub\Directx11_test\GameApplication\GameApplication.vcxproj" on node 3 (Rebuild target(s)).
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _LIB /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt GameApplication.cpp
          GameApplication.cpp
+     1>c:\users\mark\documents\github\directx11_test\gameapplication\gameapplication.cpp(89): warning C4316: 'D3D11Renderer' : object allocated on the heap may not be aligned 16
        Lib:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\Lib.exe /OUT:"C:\Users\Mark\Documents\GitHub\Directx11_test\Debug\GameApplication.lib" /NOLOGO Debug\GameApplication.obj
          GameApplication.vcxproj -> C:\Users\Mark\Documents\GitHub\Directx11_test\Debug\GameApplication.lib
-     1>Done Building Project "C:\Users\Mark\Documents\GitHub\Directx11_test\GameApplication\GameApplication.vcxproj" (Build target(s)).
+     1>Done Building Project "C:\Users\Mark\Documents\GitHub\Directx11_test\GameApplication\GameApplication.vcxproj" (Rebuild target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:01.62
+Time Elapsed 00:00:01.12
