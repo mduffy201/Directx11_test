@@ -114,6 +114,7 @@ D3D_DRIVER_TYPE         g_driverType = D3D_DRIVER_TYPE_NULL;
 	// Animate the cube
 	//
 	m_World = XMMatrixRotationY(t);
+	
 
 	ConstantBuffer cb;
 	cb.mWorld = XMMatrixTranspose(m_World);
