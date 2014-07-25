@@ -5,14 +5,19 @@ using namespace DirectX;
 struct SimpleVertex
 {
 	DirectX::XMFLOAT3 Pos;
-	DirectX::XMFLOAT4 colour;
+	DirectX::XMFLOAT3 Normal;
 };
+
 struct ConstantBuffer
 {
 	XMMATRIX mWorld;
 	XMMATRIX mView;
 	XMMATRIX mProjection;
+	XMFLOAT4 vLightDirection[2];
+	XMFLOAT4 vLightColour[2];
+	XMFLOAT4 vOutputPixelColour;
 };
+
 D3D11Renderer::D3D11Renderer(){
 	m_pD3D11Device = NULL;
 	m_pSwapChain = NULL;
@@ -40,7 +45,7 @@ D3D11Renderer::~D3D11Renderer()
 }
 
 bool D3D11Renderer::init(void *pWindowHandle, bool fullscreen){
-
+	
 	HWND window = (HWND)pWindowHandle;
 
 	RECT windowRect;
@@ -86,7 +91,9 @@ void D3D11Renderer::clear(float r, float g, float b, float a)
 {
 
 	const float ClearColor[4] = { r, g, b, a };
-	m_pD3D11DeviceContext->ClearRenderTargetView(m_pBackbuffer, (ClearColor));
+	//m_pD3D11DeviceContext->ClearRenderTargetView(m_pBackbuffer, (ClearColor));
+	m_pD3D11DeviceContext->ClearRenderTargetView(m_pBackbuffer, Colors::MidnightBlue);
+	m_pD3D11DeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
 }
 void D3D11Renderer::present()
@@ -95,7 +102,7 @@ void D3D11Renderer::present()
 }
 void D3D11Renderer::render(){
 	// Update our time
-D3D_DRIVER_TYPE         g_driverType = D3D_DRIVER_TYPE_NULL;
+ D3D_DRIVER_TYPE         g_driverType = D3D_DRIVER_TYPE_NULL;
 	static float t = 0.0f;
 	if (g_driverType == D3D_DRIVER_TYPE_REFERENCE)
 	{
@@ -116,23 +123,66 @@ D3D_DRIVER_TYPE         g_driverType = D3D_DRIVER_TYPE_NULL;
 	m_World = XMMatrixRotationY(t);
 	
 
+	//Setup light parameters
+	XMFLOAT4 vLightDirections[2] = 
+	{
+		XMFLOAT4(-0.577f, 0.577f, -0.577f, 1.0f),
+		XMFLOAT4(0.0f,0.0f,-1.0f,1.0f)
+	};
+	XMFLOAT4 vLightColours[2] =
+	{
+		XMFLOAT4(0.5f, 0.5f, 0.5f, 1.0f),
+		XMFLOAT4(0.5f, 0.0f, 0.0f, 1.0f)
+	};
+
+	//Rotate second light around origin
+	XMMATRIX mRotate = XMMatrixRotationY(-2.0f * t);
+	XMVECTOR vLightDirection = XMLoadFloat4(&vLightDirections[1]);
+	vLightDirection = XMVector3Transform(vLightDirection, mRotate);
+	XMStoreFloat4(&vLightDirections[1], vLightDirection);
+
+
 	ConstantBuffer cb;
 	cb.mWorld = XMMatrixTranspose(m_World);
 	cb.mView = XMMatrixTranspose(m_View);
 	cb.mProjection = XMMatrixTranspose(m_Projection);
+	cb.vLightDirection[0] = vLightDirections[0];
+	cb.vLightDirection[1] = vLightDirections[1];
+	cb.vLightColour[0] = vLightColours[0];
+	cb.vLightColour[1] = vLightColours[1];
+	cb.vOutputPixelColour = XMFLOAT4(0, 0, 0, 0);
 	m_pD3D11DeviceContext->UpdateSubresource(m_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+
+	
 
 	//set the shader objects
 	m_pD3D11DeviceContext->VSSetShader(pVS, nullptr, 0);
 	m_pD3D11DeviceContext->VSSetConstantBuffers(0, 1, &m_pConstantBuffer);
 	m_pD3D11DeviceContext->PSSetShader(pPS, nullptr, 0);
+	m_pD3D11DeviceContext->PSSetConstantBuffers(0, 1, &m_pConstantBuffer);
 
-	//select which primitive type we are using
-	//m_pD3D11DeviceContext->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
+	//DRAW CENTRAL CUBE
 	// draw vertex buffer to back buffer
 	m_pD3D11DeviceContext->DrawIndexed(36, 0, 0);
+	
 
+	//RENDER EACH LIGHT
+	for (int m = 0; m < 2; m++)
+	{
+		XMMATRIX mLight = XMMatrixTranslationFromVector(5.0f * XMLoadFloat4(&vLightDirections[m]));
+		XMMATRIX mLightScale = XMMatrixScaling(0.2f, 0.2f, 0.2f);
+		mLight = mLightScale * mLight;
+
+		// Update the world variable to reflect the current light 
+		cb.mWorld = XMMatrixTranspose(mLight);
+		cb.vOutputPixelColour = vLightColours[m];
+		m_pD3D11DeviceContext->UpdateSubresource(m_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+
+		m_pD3D11DeviceContext->PSSetShader(m_pPixelShaderSolid, nullptr, 0);
+		m_pD3D11DeviceContext->DrawIndexed(36, 0, 0);
+	}
+
+	
 }
 
 
@@ -220,9 +270,39 @@ bool D3D11Renderer::createInitialRenderTarget(int windowWidth, int windowHeight)
 		return false;
 
 	pBackBuffer->Release();
+	
+	//==================================================
+	//CREATE DEPTH STENCIL AND BIND TO RENDER TARGET
+	//=================================================
+
+	//Create depth stencil texture
+	D3D11_TEXTURE2D_DESC descDepth;
+	ZeroMemory(&descDepth, sizeof(descDepth));
+	descDepth.Width = windowWidth;
+	descDepth.Height = windowHeight;
+	descDepth.MipLevels = 1;
+	descDepth.ArraySize = 1;
+	descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	descDepth.SampleDesc.Count = 1;
+	descDepth.SampleDesc.Quality = 0;
+	descDepth.Usage = D3D11_USAGE_DEFAULT;
+	descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	descDepth.CPUAccessFlags = 0;
+	descDepth.MiscFlags = 0;
+	hr = m_pD3D11Device->CreateTexture2D(&descDepth, nullptr, &m_pDepthStencil);
+
+	// Create the depth stencil view 
+	D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
+	ZeroMemory(&descDSV, sizeof(descDSV));
+	descDSV.Format = descDepth.Format;
+	descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	descDSV.Texture2D.MipSlice = 0;
+	hr = m_pD3D11Device->CreateDepthStencilView(m_pDepthStencil, &descDSV, &m_pDepthStencilView);
+
 
 	//Set render target as back buffer
-	m_pD3D11DeviceContext->OMSetRenderTargets(1, &m_pBackbuffer, NULL);
+	m_pD3D11DeviceContext->OMSetRenderTargets(1, &m_pBackbuffer, m_pDepthStencilView);
+	//m_pD3D11DeviceContext->OMSetRenderTargets(1, &m_pBackbuffer, NULL);
 
 	//=========================================
 	// Init Viewport
@@ -254,14 +334,35 @@ bool D3D11Renderer::createVertexBuffer()
 	// Create vertex buffer
 	SimpleVertex vertices[] =
 	{
-		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
-		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+
+		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+
+		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+
+		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
 	};
 
 	UINT numVertices = ARRAYSIZE(vertices);
@@ -272,7 +373,7 @@ bool D3D11Renderer::createVertexBuffer()
 	ZeroMemory(&bd, sizeof(bd));
 
 	bd.Usage = D3D11_USAGE_DEFAULT;						//write access by CPU and GPU
-	bd.ByteWidth = sizeof(SimpleVertex) * 8;			//size is vertex struct * 3
+	bd.ByteWidth = sizeof(SimpleVertex) * 24;			//size is vertex struct * 3
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;			//use as vertex buffer
 	bd.CPUAccessFlags = 0;								//allow CPU to write in buffer
 	bd.MiscFlags = 0;
@@ -314,20 +415,20 @@ bool D3D11Renderer::createIndexBuffer()
 		3, 1, 0,
 		2, 1, 3,
 
-		0, 5, 4,
-		1, 5, 0,
-
-		3, 4, 7,
-		0, 4, 3,
-
-		1, 6, 5,
-		2, 6, 1,
-
-		2, 7, 6,
-		3, 7, 2,
-
 		6, 4, 5,
 		7, 4, 6,
+
+		11, 9, 8,
+		10, 9, 11,
+
+		14, 12, 13,
+		15, 12, 14,
+
+		19, 17, 16,
+		18, 17, 19,
+
+		22, 20, 21,
+		23, 20, 22
 	};
 
 	UINT numIndices = ARRAYSIZE(indices);
@@ -375,25 +476,23 @@ bool D3D11Renderer::createConstantBuffer(int windowWidth, int windowHeight)
 	bd.MiscFlags = 0;
 
 	HRESULT hr = m_pD3D11Device->CreateBuffer(&bd, NULL, &m_pConstantBuffer);
+	
 
-	if (FAILED(hr))
-	{
-		OutputDebugString(L"Can't create constant buffer");
-		return false;
-	}
 
 	//Initalise the world matrix
 	m_World = XMMatrixIdentity();
 
 	//Initalise the view matrix
-	XMVECTOR Eye = XMVectorSet(0.0f, 1.0f, -5.0f, 0.0f);
+	XMVECTOR Eye = XMVectorSet(0.0f, 4.0f, -10.0f, 0.0f);
 	XMVECTOR At = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	XMVECTOR Up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	m_View = XMMatrixLookAtLH(Eye, At, Up);
 
+	
 	//Initalise the Projection matrix
-	m_Projection = XMMatrixPerspectiveFovLH(XM_PIDIV2, windowWidth / (FLOAT)windowHeight, 0.01f, 100.0f);
+	m_Projection = XMMatrixPerspectiveFovLH(XM_PIDIV4, windowWidth / (FLOAT)windowHeight, 0.01f, 100.0f);
 
+	
 	return true;
 }
 ////Function to load shaders and apply to pipeline
@@ -407,7 +506,7 @@ bool D3D11Renderer::initPipeline(void){
 	ID3DBlob *pPSBlob = nullptr;
 	HRESULT hr = S_OK;
 
-	hr = CompileShaderFromFile(L"Tutorial04.fx",
+	hr = CompileShaderFromFile(L"Tutorial06.fx",
 		"VS",
 		"vs_4_0",
 		&pVSBlob);
@@ -421,7 +520,7 @@ bool D3D11Renderer::initPipeline(void){
 		return false;
 	}
 
-	hr = CompileShaderFromFile(L"Tutorial04.fx",
+	hr = CompileShaderFromFile(L"Tutorial06.fx",
 		"PS",
 		"ps_4_0",
 		&pPSBlob);
@@ -452,6 +551,24 @@ bool D3D11Renderer::initPipeline(void){
 		return false;
 	}
 
+	// Compile the pixel shader 
+	pPSBlob = nullptr;
+	hr = CompileShaderFromFile(L"Tutorial06.fx", "PSSolid", "ps_4_0", &pPSBlob);
+	if (FAILED(hr))
+	{
+		MessageBox(nullptr,
+			L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK);
+		return hr;
+	}
+
+	// Create the pixel shader 
+	hr = m_pD3D11Device->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &m_pPixelShaderSolid);
+	//pPSBlob->Release();
+	if (FAILED(hr))
+	{
+		pPSBlob->Release();
+		return false;
+	}
 	
 
 	//set the shader objects
@@ -476,7 +593,7 @@ bool D3D11Renderer::initPipeline(void){
 	D3D11_INPUT_ELEMENT_DESC ied[] =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 
 	UINT numElements = ARRAYSIZE(ied);

@@ -3,6 +3,7 @@
 //include renderer interface
 #include "../Renderer/Renderer.h"
 #include <Windows.h>
+#include "DDSTextureLoader.h"
 
 
 #pragma comment(lib, "d3d11.lib")
@@ -66,4 +67,15 @@ private:
 	DirectX::XMMATRIX m_View;
 	DirectX::XMMATRIX m_Projection;
 
+	ID3D11Texture2D*        m_pDepthStencil = nullptr;
+	ID3D11DepthStencilView* m_pDepthStencilView = nullptr;
+
+	DirectX::XMMATRIX m_World2;
+	ID3D11PixelShader*      m_pPixelShaderSolid = nullptr;
+	ID3D11Buffer*                       g_pCBNeverChanges = nullptr;
+	ID3D11Buffer*                       g_pCBChangeOnResize = nullptr;
+	ID3D11Buffer*                       g_pCBChangesEveryFrame = nullptr;
+	ID3D11ShaderResourceView*           g_pTextureRV = nullptr;
+	ID3D11SamplerState*                 g_pSamplerLinear = nullptr;
+	DirectX::XMFLOAT4                            g_vMeshColor;
 };
